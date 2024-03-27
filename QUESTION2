@@ -1,61 +1,77 @@
 const express = require('express');
 const axios = require('axios');
-const { Queue } = require('queue-typescript');
 
 const app = express();
-const port = 9876;
+const PORT = 9876;
 
-const WINDOW_SIZE = 10;
-const MAX_RESPONSE_TIME = 500; 
+let numbers = [];
+const windowSize = 10;
 
-let windowState = new Queue<number>(WINDOW_SIZE);
+const calculateAverage = nums => {
+  const sum = nums.reduce((acc, curr) => acc + curr, 0);
+  return sum / nums.length;
+};
 
-const testServer = 'http://20.244.56.144/';
+const fetchNumbers = async type => {
+  try {
+    const response = await axios.get(`http://20.244.56.144/test/${type}`);
+    return response.data.numbers;
+  } catch (error) {
+    console.error('Error fetching numbers:', error.message);
+    return [];
+  }
+};
 
-app.get('/numbers/:numberId', async (req, res) => {
-    const { numberId } = req.params;
+const handleNumberRequest = async (req, res, next) => {
+  const { numberId } = req.params;
+  let type;
+  
+  switch (numberId) {
+    case 'p':
+      type = 'primes';
+      break;
+    case 'f':
+      type = 'fibo';
+      break;
+    case 'e':
+      type = 'even';
+      break;
+    case 'r':
+      type = 'rand';
+      break;
+    default:
+      return res.status(400).json({ error: 'Invalid number ID' });
+  }
+  
+  const numbersFromServer = await fetchNumbers(type);
+  const newNumbers = numbersFromServer.filter(num => !numbers.includes(num));
+  
+  numbers.unshift(...newNumbers);
+  
+  if (numbers.length > windowSize) {
+    numbers = numbers.slice(0, windowSize);
+  }
+  
+  let avg = null;
+  if (numbers.length === windowSize) {
+    avg = calculateAverage(numbers);
+  }
+  
+  const response = {
+    windowPrevState: [...numbers],
+    windowCurrState: numbers.slice(0, windowSize),
+    numbers: newNumbers,
+    avg
+  };
+  
+  res.json(response);
+};
 
-    try {
-        const response = await axios.get(`${testServer}/test/${numberId}`);
-        const numbers = response.data.numbers;
+app.get('/numbers/:numberId', handleNumberRequest);
 
-        numbers.forEach(num => {
-            if (!windowState.contains(num)) {
-                if (windowState.size() === WINDOW_SIZE) {
-                    windowState.dequeue();
-                }
-                windowState.enqueue(num);
-            }
-        });
-
-        const windowPrevState = windowState.toArray();
-        
-               let avg = null;
-        if (windowPrevState.length === WINDOW_SIZE) {
-            avg = windowPrevState.reduce((acc, cur) => acc + cur, 0) / WINDOW_SIZE;
-        }
-
-                const latestResponse = await axios.get(`${testServer}/test/${numberId}`);
-        const latestNumbers = latestResponse.data.numbers;
-
-        const windowCurrState = windowState.toArray();
-
-        const responseObj = {
-            windowPrevState,
-            windowCurrState,
-            numbers: latestNumbers,
-            avg
-        };
-
-        res.json(responseObj);
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).send('Internal Server Error');
-    }
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
 
-app.listen(port, () => {
-    console.log(`Average Calculator Microservice listening at http://localhost:${port}`);
-});
 
 
