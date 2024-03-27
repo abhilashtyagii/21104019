@@ -1,1 +1,117 @@
+// App.js
+import React from 'react';
+import { BrowserRouter as Router, Switch, Route, Link } from 'react-router-dom';
+import { AllProductsPage, ProductDetailsPage } from './pages';
+
+function App() {
+  return (
+    <Router>
+      <div>
+        <nav>
+          <ul>
+            <li>
+              <Link to="/">Home</Link>
+            </li>
+            <li>
+              <Link to="/products">All Products</Link>
+            </li>
+          </ul>
+        </nav>
+
+        <Switch>
+          <Route path="/products">
+            <AllProductsPage />
+          </Route>
+          <Route path="/product/:productId">
+            <ProductDetailsPage />
+          </Route>
+          <Route path="/">
+            <Home />
+          </Route>
+        </Switch>
+      </div>
+    </Router>
+  );
+}
+
+function Home() {
+  return <h2>Home</h2>;
+}
+
+export default App;
+// pages/AllProductsPage.js
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const API_BASE_URL = 'http://20.244.56.144/test/';
+
+function AllProductsPage() {
+  const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}companies/AMZ/categories/Laptop/products?top=5&minPrice=1&maxPrice=10000`, {
+        headers: {
+          'Authorization': 'Bearer zpkkbc'
+        }
+      });
+      setProducts(response.data);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
+  return (
+    <div>
+      <h1>All Products</h1>
+      <ul>
+        {products.map((product, index) => (
+          <li key={index}>
+            <Link to={`/product/${product.productId}`}>{product.productName}</Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default AllProductsPage;
+// pages/ProductDetailsPage.js
+import React from 'react';
+import { useParams } from 'react-router-dom';
+
+function ProductDetailsPage() {
+  const { productId } = useParams();
+
+  // Simulated product data
+  const product = {
+    name: 'Laptop 1',
+    price: '$999',
+    rating: '4.5',
+    discount: '10%',
+    availability: 'In Stock',
+    description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam faucibus efficitur lectus, eget fermentum ex tempor at. Nam rhoncus mauris sed ligula dictum, non tristique ligula rutrum. Maecenas euismod libero id magna pharetra, sit amet viverra elit scelerisque.'
+  };
+
+  return (
+    <div>
+      <h1>Product Details - {product.name}</h1>
+      <p>
+        <strong>Name:</strong> {product.name}<br />
+        <strong>Price:</strong> {product.price}<br />
+        <strong>Rating:</strong> {product.rating}<br />
+        <strong>Discount:</strong> {product.discount}<br />
+        <strong>Availability:</strong> {product.availability}<br />
+        <strong>Description:</strong> {product.description}
+      </p>
+    </div>
+  );
+}
+
+export default ProductDetailsPage;
+
 
