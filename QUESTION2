@@ -1,1 +1,61 @@
+const express = require('express');
+const axios = require('axios');
+const { Queue } = require('queue-typescript');
+
+const app = express();
+const port = 9876;
+
+const WINDOW_SIZE = 10;
+const MAX_RESPONSE_TIME = 500; 
+
+let windowState = new Queue<number>(WINDOW_SIZE);
+
+const testServer = 'http://20.244.56.144/';
+
+app.get('/numbers/:numberId', async (req, res) => {
+    const { numberId } = req.params;
+
+    try {
+        const response = await axios.get(`${testServer}/test/${numberId}`);
+        const numbers = response.data.numbers;
+
+        numbers.forEach(num => {
+            if (!windowState.contains(num)) {
+                if (windowState.size() === WINDOW_SIZE) {
+                    windowState.dequeue();
+                }
+                windowState.enqueue(num);
+            }
+        });
+
+        const windowPrevState = windowState.toArray();
+        
+               let avg = null;
+        if (windowPrevState.length === WINDOW_SIZE) {
+            avg = windowPrevState.reduce((acc, cur) => acc + cur, 0) / WINDOW_SIZE;
+        }
+
+                const latestResponse = await axios.get(`${testServer}/test/${numberId}`);
+        const latestNumbers = latestResponse.data.numbers;
+
+        const windowCurrState = windowState.toArray();
+
+        const responseObj = {
+            windowPrevState,
+            windowCurrState,
+            numbers: latestNumbers,
+            avg
+        };
+
+        res.json(responseObj);
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+app.listen(port, () => {
+    console.log(`Average Calculator Microservice listening at http://localhost:${port}`);
+});
+
 
